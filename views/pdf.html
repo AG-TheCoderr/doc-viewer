@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PDF Viewer</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    iframe { width: 100%; height: 100%; border: 0; }
+    .error { 
+      padding: 20px; 
+      color: #b00020; 
+      font-family: system-ui, Arial, sans-serif;
+      text-align: center;
+    }
+    .container {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .error-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="viewer-container" style="flex: 1;">
+      <iframe id="frame" style="display: none;"></iframe>
+    </div>
+    <div id="error-container" class="error-container" style="display: none;">
+      <div id="error-message" class="error"></div>
+    </div>
+  </div>
+  
+  <script>
+    function showError(message) {
+      document.getElementById('viewer-container').style.display = 'none';
+      document.getElementById('error-container').style.display = 'block';
+      document.getElementById('error-message').textContent = message;
+    }
+    
+    const urlParams = new URLSearchParams(location.search);
+    const url = urlParams.get('url');
+    if (!url) {
+      showError('Missing URL parameter');
+      throw new Error('Missing url parameter');
+    }
+    
+    // Validate URL format
+    if (!url.startsWith('/converted/')) {
+      showError('Invalid file URL');
+      throw new Error('Invalid file URL');
+    }
+    
+    const frame = document.getElementById('frame');
+    frame.src = url + '#toolbar=1';
+    frame.onload = function() {
+      // Show the iframe only when it loads successfully
+      frame.style.display = 'block';
+    };
+    frame.onerror = function() {
+      showError('Failed to load PDF. The file may not exist or be inaccessible.');
+    };
+  </script>
+</body>
+</html>
