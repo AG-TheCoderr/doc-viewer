@@ -2,6 +2,7 @@
 
 [Open the library](https://ag-thecoderr.github.io/doc-viewer/). Start with an empty library and import your own PDFs. The static app does not upload your documents or require a login.
 
+- Scroll PDFs edge to edge. Tap the page or press `H` for controls. `Esc` hides controls, then returns to the library.
 - Read using a locally bundled PDF.js worker: real page counts, page jump, left/right arrow keys, zoom, rotation, selectable text and full-document text search.
 - Keep your files, favorites, recent reading position, page bookmarks and notes in this browser's IndexedDB. Clearing site data removes the library. Download originals and export notes for backup.
 - Browse grid or list views, filter by title (`Ctrl/Cmd+K`), sort, rename, remove and batch-download. Use light or dark workspace chrome without altering document colors.

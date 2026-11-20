@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Document, Page, pdfjs } from "react-pdf";
+import { Document, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/TextLayer.css";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import {
@@ -9,11 +9,12 @@ import {
   Bookmark,
   Search,
   Download,
-  SlidersHorizontal,
+  X,
   RotateCw,
   Minus,
   Plus,
 } from "lucide-react";
+import ScrollPages from "./ScrollPages";
 import BookmarkBackup from "./BookmarkBackup";
 import { base, readFile } from "./library";
 pdfjs.GlobalWorkerOptions.workerSrc = `${base}/pdfjs/pdf.worker.min.mjs`;
@@ -38,7 +39,7 @@ export default function Reader({ doc, update, close }) {
     [panel, show] = useState(""),
     [number, type] = useState(String(doc.page));
   const viewport = useRef(null),
-    toggleRef = useRef(null),
+    backRef = useRef(null),
     index = useRef(new Map()),
     job = useRef(0),
     saved = doc.marks.find((m) => m.page === doc.page);
@@ -69,20 +70,26 @@ export default function Reader({ doc, update, close }) {
   }, [doc.id]);
   useEffect(() => {
     const el = viewport.current;
-    const observer = new ResizeObserver(() =>
-      resize(Math.max(180, Math.min(900, el.clientWidth - 40))),
-    );
+    const observer = new ResizeObserver(() => resize(el.clientWidth));
+    resize(el.clientWidth);
+    el.focus({ preventScroll: true });
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
   useEffect(() => {
     type(String(doc.page));
-    viewport.current.scrollTop = 0;
   }, [doc.page]);
   function go(n) {
-    if (pdf && Number.isInteger(n))
-      update({ page: Math.min(pdf.numPages, Math.max(1, n)) });
+    if (!pdf || !Number.isInteger(n)) return;
+    const target = Math.min(pdf.numPages, Math.max(1, n));
+    viewport.current
+      .querySelector(`[data-sheet="${target}"]`)
+      ?.scrollIntoView({ block: "start", inline: "nearest" });
+    update({ page: target });
   }
+  useEffect(() => {
+    (controlsOpen ? backRef : viewport).current?.focus({ preventScroll: true });
+  }, [controlsOpen]);
   async function submit(e) {
     e.preventDefault();
     const token = ++job.current;
@@ -129,10 +136,10 @@ export default function Reader({ doc, update, close }) {
         e.shiftKey
       )
         return;
-      if (e.key === "Escape" && controlsOpen) {
+      if (e.key === "Escape" && !e.repeat) {
         e.preventDefault();
-        setControlsOpen(false);
-        toggleRef.current?.focus({ preventScroll: true });
+        if (controlsOpen) setControlsOpen(false);
+        else close();
         return;
       }
       if (
@@ -144,20 +151,24 @@ export default function Reader({ doc, update, close }) {
         if (!e.repeat) {
           e.preventDefault();
           setControlsOpen((open) => !open);
-          toggleRef.current?.focus({ preventScroll: true });
         }
+        return;
+      }
+      if (e.key === "Enter" && e.target === viewport.current) {
+        e.preventDefault();
+        setControlsOpen(true);
         return;
       }
       if (!pdf) return;
       const delta = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
       if (delta) {
         e.preventDefault();
-        update({ page: Math.min(pdf.numPages, Math.max(1, doc.page + delta)) });
+        go(doc.page + delta);
       }
     }
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [doc.page, pdf, update, controlsOpen]);
+  });
   const nav = (Icon, label, action, disabled = false) => (
     <button
       title={label}
@@ -169,26 +180,20 @@ export default function Reader({ doc, update, close }) {
     </button>
   );
   return (
-    <section className="reader">
-      <div className="reader-nav">
-        <button className="back" onClick={close}>
-          <ArrowLeft size={16} /> Back to library
-        </button>
-        <button
-          className="control-switch"
-          ref={toggleRef}
-          aria-expanded={controlsOpen}
-          aria-controls="reader-controls"
-          aria-keyshortcuts="H"
-          title="Toggle controls (H)"
-          onClick={() => setControlsOpen((open) => !open)}
-        >
-          <SlidersHorizontal size={15} /> Controls{" "}
-          <kbd aria-hidden="true">H</kbd>
-        </button>
-      </div>
-      <h1>{doc.name}</h1>
+    <section className="reader" aria-label={doc.name}>
       <div id="reader-controls" hidden={!controlsOpen}>
+        <div className="reader-nav">
+          <button ref={backRef} className="back" onClick={close}>
+            <ArrowLeft size={16} /> Back to library
+          </button>
+          <button
+            aria-label="Hide controls"
+            title="Hide controls (H)"
+            onClick={() => setControlsOpen(false)}
+          >
+            <X size={16} />
+          </button>
+        </div>
         <div className="toolbar">
           {nav(
             ChevronLeft,
@@ -326,12 +331,31 @@ export default function Reader({ doc, update, close }) {
           </div>
         )}
       </div>
-      <div className="paperwell" ref={viewport}>
+      <div
+        className="paperwell"
+        ref={viewport}
+        tabIndex={0}
+        role="region"
+        aria-label={`${doc.name}. Press H for controls or Escape for library.`}
+        aria-keyshortcuts="H Escape"
+        onClick={(e) => {
+          if (
+            e.detail > 1 ||
+            e.target.closest(
+              "a,button,input,textarea,select,[contenteditable=true]",
+            ) ||
+            !window.getSelection()?.isCollapsed
+          )
+            return;
+          setControlsOpen((open) => !open);
+        }}
+      >
         {error ? (
           <p role="alert">{error}</p>
         ) : (
           url && (
             <Document
+              suspense={false}
               externalLinkTarget="_blank"
               onItemClick={({ pageNumber }) => go(pageNumber)}
               file={url}
@@ -359,12 +383,16 @@ export default function Reader({ doc, update, close }) {
                 });
               }}
             >
-              <Page
-                pageNumber={doc.page}
-                width={width * zoom}
-                rotate={rotate || undefined}
-                devicePixelRatio={Math.min(window.devicePixelRatio || 1, 2)}
-              />
+              {pdf && (
+                <ScrollPages
+                  pdf={pdf}
+                  width={Math.max(1, Math.floor(width * zoom))}
+                  rotation={rotate}
+                  viewport={viewport}
+                  page={doc.page}
+                  onPage={(page) => update({ page })}
+                />
+              )}
             </Document>
           )
         )}
