@@ -41,6 +41,15 @@ try {
   assert.equal(await nextPage.isVisible(), false);
   await p.keyboard.press("h");
   await nextPage.waitFor();
+  const canvasFilter = () =>
+    p
+      .locator(".react-pdf__Page__canvas")
+      .first()
+      .evaluate((el) => getComputedStyle(el).filter);
+  const softView = p.getByRole("button", { name: "Soft view" });
+  assert.match(await canvasFilter(), /^blur\(/);
+  await softView.click();
+  assert.equal(await canvasFilter(), "none");
   await p.keyboard.press("h");
   await nextPage.waitFor({ state: "hidden" });
   await tapPage();
@@ -74,6 +83,7 @@ try {
   await p.locator(".react-pdf__Page__canvas").first().waitFor();
   if ((await p.getByLabel("Page number").inputValue()) !== "3")
     throw Error("lost reading position");
+  assert.equal(await canvasFilter(), "none");
   await p.keyboard.press("Escape");
   await p.setViewportSize({ width: 375, height: 740 });
   await p.getByRole("button", { name: /Bookmarks 1/ }).click();
