@@ -4,3 +4,5 @@ public/pdfjs/
 build/
 uploads/
 converted/
+
+public/qpdf/

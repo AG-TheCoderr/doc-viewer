@@ -16,3 +16,9 @@ for (const asset of [
     recursive: true,
   });
 }
+// qpdf runs in a local worker only when smaller export copies are requested.
+const qpdf = path.dirname(require.resolve("@neslinesli93/qpdf-wasm"));
+fs.mkdirSync("public/qpdf", { recursive: true });
+for (const asset of ["qpdf.js", "qpdf.wasm"])
+  fs.copyFileSync(path.join(qpdf, asset), path.join("public/qpdf", asset));
+fs.copyFileSync(path.join(qpdf, "../LICENSE"), "public/qpdf/LICENSE");

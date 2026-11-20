@@ -10,6 +10,12 @@
 
 [Reader research, tradeoffs and acceptance checks](docs/reader-research.md)
 
+## Bulk organizer
+
+Import PDFs, optionally filter the library, then choose **Organize**. Arrange the visible files by natural filename or date, use the arrows, or move a checked group to a position. **Sequence rename** previews new names for the checked files using a prefix, starting number, padding, and optional original title. **Apply to library** saves the displayed order and checked renames without rewriting any PDF. The last batch can be undone, even after reload.
+
+**Export ZIP** downloads the checked files with their preview names without needing to apply them. For smaller copies choose **Compress · preserve quality** (repack PDF streams) or **Compress · optimize images** (also try JPEG compression of eligible images), then **Prepare copies**. Review sizes and open the previews before downloading. PDFs are processed one at a time in a local qpdf WASM worker; no uploads or rasterization of text. Savings vary. Larger outputs and files that cannot be optimized are kept byte-for-byte. Rewritten copies may invalidate digital signatures: use original quality when signatures matter. To bound browser memory, exports are limited to 512 MiB per batch; individual PDFs over 64 MiB are exported as originals.
+
 ## Run or deploy
 
 Use Node.js 22.13+ and `npm ci`. `npm run client` starts the React development server; `npm run build` creates `build/`, including same-origin fonts, CMaps, decoders and PDF worker. These generated files are not checked in. `PUBLIC_URL` controls the deployment prefix. The GitHub Pages workflow builds and deploys this directory after pushes to `master`.
@@ -18,4 +24,4 @@ Use Node.js 22.13+ and `npm ci`. `npm run client` starts the React development s
 
 ## Browser smoke test
 
-Build for `/doc-viewer` (`PUBLIC_URL=/doc-viewer npm run build`), install a test browser with `npx playwright-core install chromium`, then run `npm run test:smoke`. Alternatively set `CHROME_PATH` to an installed Chromium executable. The test serves the production build locally and exercises reading, search, notes, persistence, imports, and narrow-screen navigation.
+Build for `/doc-viewer` (`PUBLIC_URL=/doc-viewer npm run build`), install a test browser with `npx playwright-core install chromium`, then run `npm run test:smoke` and `npm run test:organizer`. Alternatively set `CHROME_PATH` to an installed Chromium executable. The test serves the production build locally and exercises reading, search, notes, persistence, imports, and narrow-screen navigation.
