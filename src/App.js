@@ -1,708 +1,615 @@
-import React, { useState, useRef, useEffect } from 'react';
-import './App.css';
-import { formatFileSize, formatDate, generateThumbnail } from './utils';
-
-function App() {
-  const [documents, setDocuments] = useState([]);
-  const [selectedDocuments, setSelectedDocuments] = useState([]);
-  const [editingDocId, setEditingDocId] = useState(null);
-  const [newName, setNewName] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortOption, setSortOption] = useState('name');
-  const [viewMode, setViewMode] = useState('list'); // 'list' or 'grid'
-  const [isMultiSelect, setIsMultiSelect] = useState(false);
-  const [rotation, setRotation] = useState(0);
-  const [zoom, setZoom] = useState(1);
-  const [bookmarks, setBookmarks] = useState({});
-  const [editingBookmark, setEditingBookmark] = useState(null);
-  const [bookmarkNote, setBookmarkNote] = useState('');
-  const [bookmarkSearchTerm, setBookmarkSearchTerm] = useState('');
-  const fileInputRef = useRef(null);
-  const bookmarkFileInputRef = useRef(null);
-  const nameInputRef = useRef(null);
-  const noteInputRef = useRef(null);
-
-  // Get the first selected document for display
-  const selectedDocument = selectedDocuments.length > 0 ? selectedDocuments[0] : null;
-
-  // Filter documents based on search term
-  const filteredDocuments = documents.filter(doc => 
-    doc.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Sort documents based on sort option
-  const sortedDocuments = [...filteredDocuments].sort((a, b) => {
-    if (sortOption === 'name') {
-      return a.name.localeCompare(b.name);
-    } else if (sortOption === 'date') {
-      return new Date(b.uploadDate) - new Date(a.uploadDate);
-    }
-    return 0;
-  });
-
-  // Filter bookmarks based on search term
-  const filteredBookmarks = selectedDocument && bookmarks[selectedDocument.id] 
-    ? bookmarks[selectedDocument.id].filter(bookmark => 
-        bookmark.note.toLowerCase().includes(bookmarkSearchTerm.toLowerCase()) ||
-        `Page ${bookmark.page}`.toLowerCase().includes(bookmarkSearchTerm.toLowerCase())
-      )
-    : [];
-
-  useEffect(() => {
-    if (editingDocId && nameInputRef.current) {
-      nameInputRef.current.focus();
-    }
-  }, [editingDocId]);
-
-  useEffect(() => {
-    if (editingBookmark && noteInputRef.current) {
-      noteInputRef.current.focus();
-    }
-  }, [editingBookmark]);
-
-  const handleFileUpload = async (event) => {
-    const files = Array.from(event.target.files);
-    const pdfFiles = files.filter(file => file.type === 'application/pdf');
-    
-    if (pdfFiles.length === 0) {
-      alert('Please upload at least one PDF file.');
-      return;
-    }
-    
-    // Generate thumbnails for all files
-    const thumbnails = await Promise.all(pdfFiles.map(file => generateThumbnail(file)));
-    
-    const newDocuments = pdfFiles.map((file, index) => ({
-      id: Date.now() + Math.random(),
-      name: file.name,
-      size: file.size,
-      url: URL.createObjectURL(file),
-      uploadDate: new Date().toISOString(),
-      thumbnail: thumbnails[index],
-      currentPage: 1,
-      totalPages: 1
-    }));
-    
-    setDocuments(prev => [...prev, ...newDocuments]);
-    if (selectedDocuments.length === 0) {
-      setSelectedDocuments([newDocuments[0]]);
-    }
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = async (e) => {
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer.files);
-    const pdfFiles = files.filter(file => file.type === 'application/pdf');
-    
-    if (pdfFiles.length === 0) {
-      alert('Please drop at least one PDF file.');
-      return;
-    }
-    
-    // Generate thumbnails for all files
-    const thumbnails = await Promise.all(pdfFiles.map(file => generateThumbnail(file)));
-    
-    const newDocuments = pdfFiles.map((file, index) => ({
-      id: Date.now() + Math.random(),
-      name: file.name,
-      size: file.size,
-      url: URL.createObjectURL(file),
-      uploadDate: new Date().toISOString(),
-      thumbnail: thumbnails[index],
-      currentPage: 1,
-      totalPages: 1
-    }));
-    
-    setDocuments(prev => [...prev, ...newDocuments]);
-    if (selectedDocuments.length === 0) {
-      setSelectedDocuments([newDocuments[0]]);
-    }
-  };
-
-  const handleDeleteDocument = (id) => {
-    const updatedDocuments = documents.filter(doc => doc.id !== id);
-    setDocuments(updatedDocuments);
-    
-    const updatedSelectedDocuments = selectedDocuments.filter(doc => doc.id !== id);
-    setSelectedDocuments(updatedSelectedDocuments);
-    
-    // Remove bookmarks for deleted document
-    const updatedBookmarks = { ...bookmarks };
-    delete updatedBookmarks[id];
-    setBookmarks(updatedBookmarks);
-    
-    if (updatedSelectedDocuments.length === 0 && updatedDocuments.length > 0) {
-      setSelectedDocuments([updatedDocuments[0]]);
-    }
-  };
-
-  const handleDownloadDocument = () => {
-    if (!selectedDocument) return;
-    
-    const link = document.createElement('a');
-    link.href = selectedDocument.url;
-    link.download = selectedDocument.name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleDownloadSelectedDocuments = () => {
-    if (selectedDocuments.length === 0) return;
-    
-    selectedDocuments.forEach(doc => {
-      const link = document.createElement('a');
-      link.href = doc.url;
-      link.download = doc.name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    });
-  };
-
-  const startEditingName = (doc) => {
-    setEditingDocId(doc.id);
-    setNewName(doc.name);
-  };
-
-  const saveNewName = (id) => {
-    if (newName.trim() !== '') {
-      const updatedDocuments = documents.map(doc => 
-        doc.id === id ? { ...doc, name: newName } : doc
-      );
-      setDocuments(updatedDocuments);
-      
-      const updatedSelectedDocuments = selectedDocuments.map(doc => 
-        doc.id === id ? { ...doc, name: newName } : doc
-      );
-      setSelectedDocuments(updatedSelectedDocuments);
-    }
-    setEditingDocId(null);
-    setNewName('');
-  };
-
-  const cancelEditing = () => {
-    setEditingDocId(null);
-    setNewName('');
-  };
-
-  const clearSearch = () => {
-    setSearchTerm('');
-  };
-
-  const clearBookmarkSearch = () => {
-    setBookmarkSearchTerm('');
-  };
-
-  const toggleDocumentSelection = (doc) => {
-    if (isMultiSelect) {
-      if (selectedDocuments.some(selected => selected.id === doc.id)) {
-        setSelectedDocuments(prev => prev.filter(selected => selected.id !== doc.id));
-      } else {
-        setSelectedDocuments(prev => [...prev, doc]);
-      }
-    } else {
-      setSelectedDocuments([doc]);
-    }
-  };
-
-  const selectAllDocuments = () => {
-    setSelectedDocuments([...sortedDocuments]);
-  };
-
-  const deselectAllDocuments = () => {
-    setSelectedDocuments([]);
-  };
-
-  const rotatePdf = (degrees) => {
-    setRotation(prev => (prev + degrees) % 360);
-  };
-
-  const resetRotation = () => {
-    setRotation(0);
-  };
-
-  const zoomIn = () => {
-    setZoom(prev => Math.min(prev + 0.1, 3));
-  };
-
-  const zoomOut = () => {
-    setZoom(prev => Math.max(prev - 0.1, 0.5));
-  };
-
-  const resetZoom = () => {
-    setZoom(1);
-  };
-
-  const goToPreviousPage = () => {
-    if (selectedDocument && selectedDocument.currentPage > 1) {
-      const updatedDocuments = documents.map(doc => 
-        doc.id === selectedDocument.id 
-          ? { ...doc, currentPage: doc.currentPage - 1 } 
-          : doc
-      );
-      setDocuments(updatedDocuments);
-      
-      const updatedSelectedDocuments = selectedDocuments.map(doc => 
-        doc.id === selectedDocument.id 
-          ? { ...doc, currentPage: doc.currentPage - 1 } 
-          : doc
-      );
-      setSelectedDocuments(updatedSelectedDocuments);
-    }
-  };
-
-  const goToNextPage = () => {
-    if (selectedDocument && selectedDocument.currentPage < (selectedDocument.totalPages || 1)) {
-      const updatedDocuments = documents.map(doc => 
-        doc.id === selectedDocument.id 
-          ? { ...doc, currentPage: doc.currentPage + 1 } 
-          : doc
-      );
-      setDocuments(updatedDocuments);
-      
-      const updatedSelectedDocuments = selectedDocuments.map(doc => 
-        doc.id === selectedDocument.id 
-          ? { ...doc, currentPage: doc.currentPage + 1 } 
-          : doc
-      );
-      setSelectedDocuments(updatedSelectedDocuments);
-    }
-  };
-
-  const goToPage = (page) => {
-    if (selectedDocument && page >= 1 && page <= (selectedDocument.totalPages || 1)) {
-      const updatedDocuments = documents.map(doc => 
-        doc.id === selectedDocument.id 
-          ? { ...doc, currentPage: page } 
-          : doc
-      );
-      setDocuments(updatedDocuments);
-      
-      const updatedSelectedDocuments = selectedDocuments.map(doc => 
-        doc.id === selectedDocument.id 
-          ? { ...doc, currentPage: page } 
-          : doc
-      );
-      setSelectedDocuments(updatedSelectedDocuments);
-    }
-  };
-
-  const toggleBookmark = (docId, page) => {
-    setBookmarks(prev => {
-      const docBookmarks = prev[docId] || [];
-      const bookmarkIndex = docBookmarks.findIndex(b => b.page === page);
-      
-      if (bookmarkIndex >= 0) {
-        // Remove bookmark
-        const updatedBookmarks = [...docBookmarks];
-        updatedBookmarks.splice(bookmarkIndex, 1);
-        return {
-          ...prev,
-          [docId]: updatedBookmarks
-        };
-      } else {
-        // Add bookmark
-        return {
-          ...prev,
-          [docId]: [...docBookmarks, { page, note: '' }]
-        };
-      }
-    });
-  };
-
-  const isBookmarked = (docId, page) => {
-    return bookmarks[docId] && bookmarks[docId].some(b => b.page === page);
-  };
-
-  const startEditingBookmarkNote = (docId, page) => {
-    const docBookmarks = bookmarks[docId] || [];
-    const bookmark = docBookmarks.find(b => b.page === page);
-    if (bookmark) {
-      setEditingBookmark({ docId, page });
-      setBookmarkNote(bookmark.note || '');
-    }
-  };
-
-  const saveBookmarkNote = () => {
-    if (editingBookmark) {
-      setBookmarks(prev => {
-        const docBookmarks = prev[editingBookmark.docId] || [];
-        const updatedBookmarks = docBookmarks.map(b => 
-          b.page === editingBookmark.page ? { ...b, note: bookmarkNote } : b
-        );
-        return {
-          ...prev,
-          [editingBookmark.docId]: updatedBookmarks
-        };
-      });
-      setEditingBookmark(null);
-      setBookmarkNote('');
-    }
-  };
-
-  const cancelEditingBookmarkNote = () => {
-    setEditingBookmark(null);
-    setBookmarkNote('');
-  };
-
-  const exportBookmarks = () => {
-    if (!selectedDocument || !bookmarks[selectedDocument.id]) return;
-    
-    const bookmarkData = {
-      documentName: selectedDocument.name,
-      bookmarks: bookmarks[selectedDocument.id]
-    };
-    
-    const dataStr = JSON.stringify(bookmarkData, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
-    const exportFileDefaultName = `${selectedDocument.name}_bookmarks.json`;
-    
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-  };
-
-  const handleBookmarkFileUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const bookmarkData = JSON.parse(e.target.result);
-        if (bookmarkData.documentName === selectedDocument.name && bookmarkData.bookmarks) {
-          setBookmarks(prev => ({
-            ...prev,
-            [selectedDocument.id]: bookmarkData.bookmarks
-          }));
-          alert('Bookmarks imported successfully!');
-        } else {
-          alert('Invalid bookmark file or document name mismatch.');
-        }
-      } catch (error) {
-        alert('Error parsing bookmark file.');
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const importBookmarks = () => {
-    if (!selectedDocument) return;
-    bookmarkFileInputRef.current.click();
-  };
-
-  // Update the URL to include page information
-  const getPdfUrlWithPage = (doc) => {
-    if (!doc) return '';
-    // Note: This is a simplified approach. In a real implementation, you might need
-    // to use a PDF viewer library that supports page navigation.
-    return `${doc.url}#page=${doc.currentPage || 1}`;
-  };
-
+import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
+import {
+  BookOpen,
+  Library,
+  Clock3,
+  Star,
+  Bookmark,
+  Plus,
+  ArrowUpRight,
+  ChevronRight,
+  ChevronDown,
+  Search,
+  Grid2X2,
+  List,
+  Sun,
+  Moon,
+  HardDrive,
+  FileText,
+  Menu,
+  X,
+  Mountain,
+  SlidersHorizontal,
+  MoreHorizontal,
+  Trash2,
+  PenLine,
+  BookOpenText,
+} from "lucide-react";
+import {
+  examples,
+  readShelf,
+  writeShelf,
+  saveFile,
+  eraseFile,
+  cover,
+} from "./library";
+import "./App.css";
+import BatchDownload from "./BatchDownload";
+const Reader = lazy(() => import("./Reader"));
+const navs = [
+  ["My library", Library],
+  ["Recently read", Clock3],
+  ["Favorites", Star],
+  ["Bookmarks", Bookmark],
+];
+function IconButton({ label, children, ...props }) {
   return (
-    <div className="app">
-      {/* Header */}
-      <header className="header">
-        <h1>Modern Document Viewer</h1>
-        <div className="header-actions">
-          <button 
-            className={`multi-select-toggle ${isMultiSelect ? 'active' : ''}`}
-            onClick={() => setIsMultiSelect(!isMultiSelect)}
-          >
-            {isMultiSelect ? 'Multi-Select On' : 'Multi-Select Off'}
-          </button>
-          <button 
-            className="view-toggle"
-            onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
-          >
-            {viewMode === 'list' ? 'Grid View' : 'List View'}
-          </button>
-          <button 
-            className="upload-btn" 
-            onClick={() => fileInputRef.current.click()}
-          >
-            Upload PDF
-          </button>
+    <button title={label} aria-label={label} {...props}>
+      {children}
+    </button>
+  );
+}
+function App() {
+  const [docs, setDocs] = useState(examples),
+    [ready, init] = useState(false),
+    [persist, storage] = useState(true),
+    [view, switchView] = useState("My library"),
+    [reader, read] = useState(null),
+    [search, filter] = useState(""),
+    [sort, order] = useState("recent"),
+    [layout, setLayout] = useState("grid"),
+    [theme, setTheme] = useState(() => {
+      try {
+        return localStorage.getItem("folio-theme") || "light";
+      } catch {
+        return "light";
+      }
+    }),
+    [mobile, drawer] = useState(false),
+    [message, notify] = useState(""),
+    [actions, action] = useState(null),
+    [batch, selectBatch] = useState(false),
+    [busy, working] = useState(false),
+    [drag, dragging] = useState(false);
+  const input = useRef(null),
+    finder = useRef(null),
+    active = docs.find((d) => d.id === reader);
+  useEffect(() => {
+    readShelf()
+      .then((value) => {
+        if (Array.isArray(value)) setDocs(value);
+      })
+      .catch(() => {
+        storage(false);
+        notify(
+          "Device storage is unavailable. The sample library is still readable.",
+        );
+      })
+      .finally(() => init(true));
+  }, []);
+  useEffect(() => {
+    if (ready && persist)
+      writeShelf(docs).catch(() =>
+        notify("Could not save library changes on this device."),
+      );
+  }, [docs, ready, persist]);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem("folio-theme", theme);
+    } catch {}
+  }, [theme]);
+  useEffect(() => {
+    function keys(e) {
+      if (e.key === "Escape") {
+        action(null);
+        drawer(false);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        read(null);
+        requestAnimationFrame(() => finder.current?.focus());
+      }
+    }
+    window.addEventListener("keydown", keys);
+    return () => window.removeEventListener("keydown", keys);
+  }, []);
+  function patch(id, data) {
+    setDocs((old) => old.map((d) => (d.id === id ? { ...d, ...data } : d)));
+  }
+  function open(d, page) {
+    read(d.id);
+    patch(d.id, { last: Date.now(), ...(page ? { page } : {}) });
+    action(null);
+    drawer(false);
+  }
+  function navigate(name) {
+    selectBatch(false);
+    switchView(name);
+    read(null);
+    filter("");
+    drawer(false);
+    action(null);
+  }
+  async function add(files) {
+    if (!ready || busy) return;
+    working(true);
+    const added = [],
+      errors = [];
+    try {
+      for (const f of files) {
+        if (!/\.pdf$/i.test(f.name) && f.type !== "application/pdf") {
+          errors.push(`${f.name}: not a PDF`);
+          continue;
+        }
+        try {
+          const id = crypto.randomUUID();
+          await saveFile(id, f);
+          added.push({
+            id,
+            name: f.name.replace(/\.pdf$/i, ""),
+            category: "Personal document",
+            art: ["atlas", "form", "botany"][added.length % 3],
+            added: Date.now(),
+            size: f.size,
+            page: 1,
+            marks: [],
+          });
+        } catch {
+          errors.push(
+            `${f.name}: not enough device storage or storage is blocked`,
+          );
+        }
+      }
+      if (added.length) {
+        setDocs((prev) => [...added, ...prev]);
+        navigate("My library");
+        order("recent");
+      }
+      notify(
+        [
+          added.length
+            ? `${added.length} PDF${added.length === 1 ? "" : "s"} added to your library.`
+            : "",
+          ...errors,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      );
+    } finally {
+      working(false);
+      input.current.value = "";
+    }
+  }
+  const recent = [...docs]
+      .filter((d) => d.last)
+      .sort((a, b) => b.last - a.last),
+    hero = recent[0] || docs.find((d) => d.sample) || docs[0];
+  const shown = docs
+    .filter(
+      (d) =>
+        (view === "My library" ||
+          (view === "Favorites" && d.favorite) ||
+          (view === "Recently read" && d.last) ||
+          (view === "Bookmarks" && d.marks.length)) &&
+        (d.name.toLowerCase().includes(search.toLowerCase()) ||
+          (view === "Bookmarks" &&
+            d.marks.some((m) =>
+              m.note.toLowerCase().includes(search.toLowerCase()),
+            ))),
+    )
+    .sort((a, b) =>
+      sort === "az"
+        ? a.name.localeCompare(b.name)
+        : view === "Recently read"
+          ? b.last - a.last
+          : b.added - a.added,
+    );
+  const counts = [
+    docs.length,
+    recent.length,
+    docs.filter((d) => d.favorite).length,
+    docs.reduce((a, d) => a + d.marks.length, 0),
+  ];
+  const importBtn = (
+    <button
+      className="primary"
+      disabled={!ready || busy || !persist}
+      onClick={() => input.current.click()}
+    >
+      <Plus size={17} />
+      {busy ? "Importing…" : "Import PDF"}
+    </button>
+  );
+  return (
+    <div
+      className="shell"
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes("Files")) {
+          e.preventDefault();
+          dragging(true);
+        }
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        dragging(false);
+        add(Array.from(e.dataTransfer.files));
+      }}
+    >
+      <input
+        type="file"
+        hidden
+        accept="application/pdf,.pdf"
+        multiple
+        ref={input}
+        onChange={(e) => add(Array.from(e.target.files))}
+      />
+      {drag && (
+        <div className="dropveil" onDragLeave={() => dragging(false)}>
+          Drop PDFs to add to your library
         </div>
-        <input
-          type="file"
-          ref={fileInputRef}
-          style={{ display: 'none' }}
-          onChange={handleFileUpload}
-          accept=".pdf"
-          multiple
+      )}
+      {mobile && (
+        <button
+          className="scrim"
+          aria-label="Close navigation"
+          onClick={() => drawer(false)}
         />
-      </header>
-
-      <div className="main-content">
-        {/* Sidebar */}
-        <aside className="sidebar">
-          <div className="sidebar-header">
-            <h2>Documents ({documents.length})</h2>
-            {isMultiSelect && (
-              <div className="multi-select-actions">
-                <span>{selectedDocuments.length} selected</span>
-                <button onClick={selectAllDocuments}>Select All</button>
-                <button onClick={deselectAllDocuments}>Deselect All</button>
-                <button onClick={handleDownloadSelectedDocuments}>Download Selected</button>
-              </div>
-            )}
-            <div className="search-container">
-              <input
-                type="text"
-                placeholder="Search documents..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
-              />
-              {searchTerm && (
-                <button className="clear-search" onClick={clearSearch}>
-                  ×
-                </button>
-              )}
-            </div>
-            <div className="sort-container">
-              <label htmlFor="sort">Sort by: </label>
-              <select 
-                id="sort" 
-                value={sortOption} 
-                onChange={(e) => setSortOption(e.target.value)}
-                className="sort-select"
-              >
-                <option value="name">Name</option>
-                <option value="date">Date</option>
-              </select>
-            </div>
-          </div>
-          <ul className={`document-list ${viewMode}`}>
-            {sortedDocuments.map(doc => (
-              <li 
-                key={doc.id} 
-                className={selectedDocuments.some(selected => selected.id === doc.id) ? 'selected' : ''}
-                onClick={() => toggleDocumentSelection(doc)}
-              >
-                {viewMode === 'grid' ? (
-                  <div className="doc-grid-item">
-                    <div className="doc-thumbnail">
-                      <img src={doc.thumbnail} alt={doc.name} />
-                    </div>
-                    <div className="doc-grid-info">
-                      <div className="doc-name">{doc.name}</div>
-                      <div className="doc-meta">
-                        <span className="doc-size">{formatFileSize(doc.size)}</span>
-                        <span className="doc-date">{formatDate(doc.uploadDate)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : editingDocId === doc.id ? (
-                  <div className="doc-editing">
-                    <input
-                      type="text"
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      onBlur={() => saveNewName(doc.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') saveNewName(doc.id);
-                        if (e.key === 'Escape') cancelEditing();
-                      }}
-                      ref={nameInputRef}
-                      className="name-input"
-                    />
-                    <div className="edit-buttons">
-                      <button className="save-btn" onClick={() => saveNewName(doc.id)}>Save</button>
-                      <button className="cancel-btn" onClick={cancelEditing}>Cancel</button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="doc-info">
-                      <div className="doc-name">{doc.name}</div>
-                      <div className="doc-meta">
-                        <span className="doc-size">{formatFileSize(doc.size)}</span>
-                        <span className="doc-date">{formatDate(doc.uploadDate)}</span>
-                      </div>
-                    </div>
-                    <div className="doc-actions">
-                      <button 
-                        className="edit-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startEditingName(doc);
-                        }}
-                      >
-                        ✎
-                      </button>
-                      <button 
-                        className="delete-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteDocument(doc.id);
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-        </aside>
-
-        {/* Main View */}
-        <main 
-          className="viewer"
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
+      )}
+      <aside className={mobile ? "rail expanded" : "rail"}>
+        <a
+          className="brand"
+          href="#library"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate("My library");
+          }}
         >
-          {selectedDocument ? (
-            <div className="pdf-viewer">
-              <div className="pdf-header">
-                <h2>{selectedDocument.name}</h2>
-                <div className="pdf-actions">
-                  <button className="nav-btn" onClick={goToPreviousPage} disabled={selectedDocument.currentPage <= 1}>‹</button>
-                  <span className="page-info">
-                    Page {selectedDocument.currentPage || 1} of {selectedDocument.totalPages || 1}
-                  </span>
-                  <button className="nav-btn" onClick={goToNextPage} disabled={selectedDocument.currentPage >= (selectedDocument.totalPages || 1)}>›</button>
-                  <button 
-                    className={`bookmark-btn ${isBookmarked(selectedDocument.id, selectedDocument.currentPage) ? 'bookmarked' : ''}`}
-                    onClick={() => toggleBookmark(selectedDocument.id, selectedDocument.currentPage)}
-                  >
-                    {isBookmarked(selectedDocument.id, selectedDocument.currentPage) ? '★' : '☆'}
-                  </button>
-                  <button className="zoom-btn" onClick={zoomOut}>−</button>
-                  <span className="zoom-level">{Math.round(zoom * 100)}%</span>
-                  <button className="zoom-btn" onClick={zoomIn}>+</button>
-                  <button className="reset-btn" onClick={resetZoom}>Reset Zoom</button>
-                  <button className="rotate-btn" onClick={() => rotatePdf(-90)}>↺</button>
-                  <button className="rotate-btn" onClick={() => rotatePdf(90)}>↻</button>
-                  <button className="reset-btn" onClick={resetRotation}>Reset Rotation</button>
-                  <button className="download-btn" onClick={handleDownloadDocument}>
-                    Download
-                  </button>
-                </div>
-                <div className="pdf-info">
-                  <span>{formatFileSize(selectedDocument.size)}</span>
-                  <span>{formatDate(selectedDocument.uploadDate)}</span>
-                </div>
-              </div>
-              <div className="pdf-container">
-                <iframe 
-                  src={getPdfUrlWithPage(selectedDocument)} 
-                  title={selectedDocument.name}
-                  width="100%" 
-                  height="100%"
-                  style={{ 
-                    transform: `rotate(${rotation}deg) scale(${zoom})`,
-                    transformOrigin: 'center'
-                  }}
-                />
-              </div>
-              {bookmarks[selectedDocument.id] && bookmarks[selectedDocument.id].length > 0 && (
-                <div className="bookmarks-panel">
-                  <div className="bookmarks-header">
-                    <h3>Bookmarks</h3>
-                    <div className="bookmark-actions">
-                      <button className="export-btn" onClick={exportBookmarks}>
-                        Export
-                      </button>
-                      <button className="import-btn" onClick={importBookmarks}>
-                        Import
-                      </button>
-                    </div>
-                  </div>
-                  <div className="bookmark-search-container">
-                    <input
-                      type="text"
-                      placeholder="Search bookmarks..."
-                      value={bookmarkSearchTerm}
-                      onChange={(e) => setBookmarkSearchTerm(e.target.value)}
-                      className="bookmark-search-input"
-                    />
-                    {bookmarkSearchTerm && (
-                      <button className="clear-search" onClick={clearBookmarkSearch}>
-                        ×
-                      </button>
-                    )}
-                  </div>
-                  <ul>
-                    {(bookmarkSearchTerm ? filteredBookmarks : bookmarks[selectedDocument.id])
-                      .sort((a, b) => a.page - b.page)
-                      .map(bookmark => (
-                        <li key={bookmark.page}>
-                          {editingBookmark && editingBookmark.docId === selectedDocument.id && editingBookmark.page === bookmark.page ? (
-                            <div className="bookmark-editing">
-                              <input
-                                type="text"
-                                value={bookmarkNote}
-                                onChange={(e) => setBookmarkNote(e.target.value)}
-                                ref={noteInputRef}
-                                className="note-input"
-                                placeholder="Add a note..."
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') saveBookmarkNote();
-                                  if (e.key === 'Escape') cancelEditingBookmarkNote();
-                                }}
-                              />
-                              <div className="edit-buttons">
-                                <button className="save-btn" onClick={saveBookmarkNote}>Save</button>
-                                <button className="cancel-btn" onClick={cancelEditingBookmarkNote}>Cancel</button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="bookmark-item-container">
-                              <button 
-                                className={`bookmark-item ${selectedDocument.currentPage === bookmark.page ? 'current' : ''}`}
-                                onClick={() => goToPage(bookmark.page)}
-                              >
-                                Page {bookmark.page}
-                              </button>
-                              {bookmark.note && (
-                                <div className="bookmark-note">{bookmark.note}</div>
-                              )}
-                              <button 
-                                className="edit-note-btn"
-                                onClick={() => startEditingBookmarkNote(selectedDocument.id, bookmark.page)}
-                              >
-                                ✎
-                              </button>
-                            </div>
-                          )}
-                        </li>
-                      ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="drop-zone">
-              <p>Drag & drop PDF files here</p>
-              <p>or</p>
-              <button onClick={() => fileInputRef.current.click()}>
-                Select PDF Files
+          <span className="logomark">
+            <BookOpen size={24} />
+          </span>{" "}
+          Folio<span className="branddot">.</span>
+        </a>
+        <div className="railbody">
+          <div className="eyebrow">WORKSPACE</div>
+          <nav>
+            {navs.map(([name, Icon], i) => (
+              <button
+                key={name}
+                className={!reader && view === name ? "selected" : ""}
+                onClick={() => navigate(name)}
+              >
+                <Icon size={18} />
+                {name}
+                <small>{counts[i]}</small>
               </button>
-              <p className="drop-zone-info">Supports multiple file selection</p>
+            ))}
+          </nav>
+        </div>
+        <div className="local">
+          <span className="device">
+            <HardDrive size={18} />
+          </span>
+          <div>
+            <strong>Local workspace</strong>
+            <small>Private by design</small>
+          </div>
+          <b />
+        </div>
+      </aside>
+      <div className="work">
+        <header>
+          <IconButton
+            className="mobileMenu"
+            label="Open navigation"
+            onClick={() => drawer(true)}
+          >
+            <Menu />
+          </IconButton>
+          <span className="crumb">
+            Workspace <ChevronRight size={13} />{" "}
+            <b>{active ? "Reader" : view}</b>
+          </span>
+          <div className="headerRight">
+            <span className="localbadge">
+              <i /> On device
+            </span>
+            <IconButton
+              className="theme"
+              label={
+                theme === "light"
+                  ? "Switch to dark mode"
+                  : "Switch to light mode"
+              }
+              onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+            >
+              {theme === "light" ? <Moon size={17} /> : <Sun size={17} />}
+            </IconButton>
+          </div>
+        </header>
+        <main>
+          {message && (
+            <div className="notice" role="status">
+              {message}
+              <IconButton label="Dismiss message" onClick={() => notify("")}>
+                <X size={16} />
+              </IconButton>
             </div>
           )}
-          <input
-            type="file"
-            ref={bookmarkFileInputRef}
-            style={{ display: 'none' }}
-            onChange={handleBookmarkFileUpload}
-            accept=".json"
-          />
+          {active ? (
+            <Suspense fallback={<p>Loading reader…</p>}>
+              <Reader
+                key={active.id}
+                doc={active}
+                update={(v) => patch(active.id, v)}
+                close={() => read(null)}
+              />
+            </Suspense>
+          ) : (
+            <>
+              <div className="heading">
+                <div>
+                  <div className="eyebrow">
+                    <span className="rule" /> READING WORKSPACE
+                  </div>
+                  <h1>{view === "My library" ? "Document library" : view}</h1>
+                  <p>
+                    {
+                      {
+                        "My library":
+                          "Your documents, organized and ready to read.",
+                        "Recently read":
+                          "Return to the documents you opened recently.",
+                        Favorites:
+                          "A shelf for the documents you come back to.",
+                        Bookmarks: "Revisit saved pages and reading notes.",
+                      }[view]
+                    }
+                  </p>
+                </div>
+                {importBtn}
+              </div>
+              {view === "My library" && hero && !search && (
+                <article className="spotlight">
+                  <div
+                    className="landscape"
+                    style={{
+                      backgroundImage: `url(${cover({ art: "atlas" })})`,
+                    }}
+                  />
+                  <div className="featureCopy">
+                    <div className="featuretag">
+                      <BookOpenText size={13} />
+                      {recent.length ? "CONTINUE READING" : "FEATURED READ"}
+                    </div>
+                    <h2>{hero.name}</h2>
+                    <p>
+                      {recent.length
+                        ? `Your place is saved on page ${hero.page}.`
+                        : hero.id === "atlas"
+                          ? "A field guide to reading the landscape."
+                          : "Explore a document from your library."}
+                    </p>
+                    <button onClick={() => open(hero)}>
+                      {recent.length ? "Resume reading" : "Open document"}
+                      <ArrowUpRight size={16} />
+                    </button>
+                  </div>
+                  <span className="plate">
+                    <Mountain size={13} /> FOLIO &nbsp;/&nbsp; FIELD SERIES
+                  </span>
+                </article>
+              )}
+              <section aria-label="Document collection">
+                <div className="sectiontop">
+                  <h2>
+                    {view === "My library"
+                      ? "All documents"
+                      : view === "Bookmarks"
+                        ? "Saved pages"
+                        : "Documents"}{" "}
+                    <span>{shown.length}</span>
+                  </h2>
+                  <div className="displayTools">
+                    <button
+                      className="selectDocs"
+                      onClick={() => selectBatch(!batch)}
+                    >
+                      Select
+                    </button>
+                    <div className="views">
+                      <IconButton
+                        className={layout === "grid" ? "on" : ""}
+                        label="Grid view"
+                        aria-pressed={layout === "grid"}
+                        onClick={() => setLayout("grid")}
+                      >
+                        <Grid2X2 size={15} />
+                      </IconButton>
+                      <IconButton
+                        className={layout === "list" ? "on" : ""}
+                        label="List view"
+                        aria-pressed={layout === "list"}
+                        onClick={() => setLayout("list")}
+                      >
+                        <List size={16} />
+                      </IconButton>
+                    </div>
+                  </div>
+                </div>
+                {batch && (
+                  <BatchDownload
+                    docs={shown}
+                    close={() => selectBatch(false)}
+                  />
+                )}
+                <div className="filters">
+                  <label className="finder">
+                    <Search size={16} />
+                    <input
+                      ref={finder}
+                      placeholder="Search documents…"
+                      aria-label="Search documents"
+                      value={search}
+                      onChange={(e) => filter(e.target.value)}
+                    />
+                    <kbd>Ctrl K</kbd>
+                  </label>
+                  <label className="sort">
+                    <SlidersHorizontal size={15} />
+                    <select
+                      aria-label="Sort documents"
+                      value={sort}
+                      onChange={(e) => order(e.target.value)}
+                    >
+                      <option value="recent">
+                        {view === "Recently read"
+                          ? "Last opened"
+                          : "Date added"}
+                      </option>
+                      <option value="az">Title A–Z</option>
+                    </select>
+                    <ChevronDown size={13} />
+                  </label>
+                </div>
+                <div className={"cards " + (layout === "list" ? "rows" : "")}>
+                  {shown.map((d) => (
+                    <article className="card" key={d.id}>
+                      <button
+                        className="cover"
+                        style={{ backgroundImage: `url(${cover(d)})` }}
+                        aria-label={`Read ${d.name}`}
+                        onClick={() => open(d)}
+                      >
+                        <span className="pdfbadge">
+                          <FileText size={11} /> PDF
+                        </span>
+                        <span className="edition">
+                          {d.sample ? "FOLIO EDITIONS" : "PERSONAL ARCHIVE"}
+                        </span>
+                      </button>
+                      <div className="cardbody">
+                        <div className="cardtop">
+                          <span className="category">{d.category}</span>
+                          <IconButton
+                            className={"fav " + (d.favorite ? "starred" : "")}
+                            label={`${d.favorite ? "Unfavorite" : "Favorite"} ${d.name}`}
+                            onClick={() =>
+                              patch(d.id, { favorite: !d.favorite })
+                            }
+                          >
+                            <Star
+                              size={15}
+                              fill={d.favorite ? "currentColor" : "none"}
+                            />
+                          </IconButton>
+                        </div>
+                        <button className="docname" onClick={() => open(d)}>
+                          {d.name}
+                        </button>
+                        <div className="metadata">
+                          <FileText size={13} />
+                          {d.pages
+                            ? `${d.pages} pages`
+                            : d.size < 1048576
+                              ? `${Math.ceil(d.size / 1024)} KB`
+                              : `${(d.size / 1048576).toFixed(1)} MB`}
+                          <b>·</b>
+                          {d.sample ? "Sample PDF" : "Imported PDF"}
+                          <IconButton
+                            className="more"
+                            label={`Options for ${d.name}`}
+                            onClick={() =>
+                              action(actions === d.id ? null : d.id)
+                            }
+                          >
+                            <MoreHorizontal size={17} />
+                          </IconButton>
+                        </div>
+                        {view === "Bookmarks" &&
+                          d.marks.map((m) => (
+                            <button
+                              className="marklink"
+                              key={m.page}
+                              onClick={() => open(d, m.page)}
+                            >
+                              Page {m.page} {m.note && `· ${m.note}`}
+                            </button>
+                          ))}
+                        {actions === d.id && (
+                          <div className="options">
+                            <button
+                              onClick={() => {
+                                const n = window.prompt(
+                                  "Document title",
+                                  d.name,
+                                );
+                                if (n?.trim()) patch(d.id, { name: n.trim() });
+                                action(null);
+                              }}
+                            >
+                              <PenLine size={14} />
+                              Rename
+                            </button>
+                            <button
+                              onClick={async () => {
+                                action(null);
+                                if (
+                                  window.confirm(
+                                    `Remove ${d.name} and its bookmarks from this device?`,
+                                  )
+                                ) {
+                                  try {
+                                    if (!d.sample) await eraseFile(d.id);
+                                    setDocs((prev) =>
+                                      prev.filter((x) => x.id !== d.id),
+                                    );
+                                  } catch {
+                                    notify(
+                                      "Could not remove file. Please try again.",
+                                    );
+                                  }
+                                }
+                              }}
+                            >
+                              <Trash2 size={14} />
+                              Remove
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                {!shown.length && (
+                  <div className="empty">
+                    <BookOpen size={28} />
+                    <h3>
+                      {search ? "No matching documents" : "Nothing here yet"}
+                    </h3>
+                    <p>
+                      {search
+                        ? "Try a different title."
+                        : view === "Bookmarks"
+                          ? "Open a PDF and bookmark a page to see it here."
+                          : view === "Favorites"
+                            ? "Select the star beside a document to save it here."
+                            : view === "Recently read"
+                              ? "Open any document to start your reading history."
+                              : "Import your first PDF to get started."}
+                    </p>
+                  </div>
+                )}
+              </section>
+              <footer>
+                <span className="rule" /> FOLIO WORKSPACE{" "}
+                <span className="rule" />
+              </footer>
+            </>
+          )}
         </main>
       </div>
     </div>
   );
 }
-
 export default App;
