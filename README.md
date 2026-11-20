@@ -1,56 +1,20 @@
-# T2 Document Viewer
+# Folio — a local PDF workspace
 
-A minimal local web app to view documents in formats:
+[Open the library](https://ag-thecoderr.github.io/doc-viewer/). Import a PDF or explore one of three original sample field guides. The static app does not upload your documents or require a login.
 
-- .docm, .dotx, .dotm, .wps, .xml, .pages, .xps, .mobi, .epub, .docx, .doc, .pdf, .rtf, .txt, .odt
+- Read using a locally bundled PDF.js worker: real page counts, page jump, left/right arrow keys, zoom, rotation, selectable text and full-document text search.
+- Keep your files, favorites, recent reading position, page bookmarks and notes in this browser's IndexedDB. Clearing site data removes the library. Download originals and export notes for backup.
+- Browse grid or list views, filter by title (`Ctrl/Cmd+K`), sort, rename, remove and batch-download. Use light or dark workspace chrome without altering document colors.
+- Search needs a PDF text layer; OCR, cloud sync and Office conversion are not part of the Pages app.
 
-Approach:
-- Convert to PDF or EPUB locally using system tools where needed.
-- View PDFs via built-in browser viewer (iframe) and EPUB via epub.js.
+[Reader research, tradeoffs and acceptance checks](docs/reader-research.md)
 
-## Requirements
+## Run or deploy
 
-Install the following system tools (Windows):
+Use Node.js 22.13+ and `npm ci`. `npm run client` starts the React development server; `npm run build` creates `build/`, including same-origin fonts, CMaps, decoders and PDF worker. These generated files are not checked in. `PUBLIC_URL` controls the deployment prefix. The GitHub Pages workflow builds and deploys this directory after pushes to `master`.
 
-- LibreOffice: provides `soffice` for converting Office formats, WPS, XML, RTF, TXT, ODT, and sometimes .pages.
-- MuPDF: provides `mutool` for converting XPS to PDF.
-- Calibre: provides `ebook-convert` for converting MOBI to EPUB or PDF.
+`npm start` builds and serves the app via the existing local Express server on port 3002 (override with `PORT`). This local server also has older conversion endpoints that require LibreOffice (`soffice`), MuPDF (`mutool`) or Calibre (`ebook-convert`) depending on the format. Conversion is **not** used by the PDF library; do not expose the legacy upload server publicly without hardening it.
 
-Ensure these executables are in your PATH so the server can call them.
+## Browser smoke test
 
-## Quick start
-
-1. Install Node.js 18+.
-2. Install dependencies:
-
-```powershell
-npm install
-```
-
-3. Run the server:
-
-```powershell
-npm start
-```
-
-4. Open http://localhost:3000 and upload a file.
-
-## Features
-
-- Document viewing for various formats (converted to PDF for viewing)
-- Bookmarking system with note-taking capability
-- Export/import bookmarks as JSON files
-- Search documents by name
-- Sort documents by name or date
-- Grid and list view modes
-- Multi-document selection
-- Batch download of selected documents
-- Zoom and rotation controls for PDFs
-- Page navigation within PDFs
-
-## Notes
-
-- .pages support: many .pages files are zipped packages. LibreOffice can import some versions. If conversion fails, consider exporting to PDF from Pages on macOS, or manually unzip and locate the PDF within the package (older versions often include a PDF preview).
-- .xml: Only office-like XML (Word 2003 XML) is intended; arbitrary XML won't render unless LibreOffice recognizes it. If conversion fails, transform XML to HTML with an XSLT first.
-- Security: This is a local tool; do not expose publicly without hardening. Files are stored locally in `uploads/` and `converted/`.
-- Clean up: Add a cron/job to delete old files if needed.
+Build for `/doc-viewer` (`PUBLIC_URL=/doc-viewer npm run build`), install a test browser with `npx playwright-core install chromium`, then run `npm run test:smoke`. Alternatively set `CHROME_PATH` to an installed Chromium executable. The test serves the production build locally and exercises reading, search, notes, persistence, imports, and narrow-screen navigation.
