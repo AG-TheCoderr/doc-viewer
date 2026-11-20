@@ -12,14 +12,22 @@ import {
   List,
   Sun,
   Moon,
-  HardDrive,
   FileText,
   X,
   MoreHorizontal,
   Trash2,
   PenLine,
 } from "lucide-react";
-import { readShelf, writeShelf, saveFile, eraseFile, base } from "./library";
+import {
+  readShelf,
+  watchShelf,
+  changeShelf,
+  importDocuments,
+  patchDocument,
+  removeDocument,
+  base,
+} from "./library";
+import LocalStoragePanel from "./LocalStoragePanel";
 import "./App.css";
 import { applyPlan } from "./bulkPlan";
 const Organizer = lazy(() => import("./Organizer"));
@@ -60,6 +68,7 @@ function App() {
       }
     }),
     [message, notify] = useState(""),
+    [saveFailed, setSaveFailed] = useState(false),
     [actions, action] = useState(null),
     [batch, selectBatch] = useState(null),
     [undo, setUndo] = useState(null),
@@ -69,25 +78,35 @@ function App() {
     finder = useRef(null),
     active = docs.find((d) => d.id === reader);
   useEffect(() => {
-    readShelf()
-      .then(([value, journal]) => {
-        if (journal) setUndo(journal);
-        if (Array.isArray(value)) setDocs(value.filter((d) => !d.sample));
-      })
-      .catch(() => {
-        storage(false);
-        notify(
-          "Device storage is unavailable. Allow site storage to import PDFs.",
-        );
-      })
-      .finally(() => init(true));
+    let mounted = true,
+      applied = -1;
+    async function refresh(event) {
+      try {
+        const state = event?.detail || (await readShelf());
+        if (mounted && state.revision >= applied) {
+          applied = state.revision;
+          setDocs(state.docs);
+          setUndo(state.undo);
+          storage(true);
+        }
+      } catch {
+        if (mounted) {
+          storage(false);
+          notify(
+            "Cannot read device storage. Allow site storage, then reopen Folio.",
+          );
+        }
+      } finally {
+        if (mounted) init(true);
+      }
+    }
+    const unsubscribe = watchShelf(refresh);
+    refresh();
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, []);
-  useEffect(() => {
-    if (ready && persist)
-      writeShelf(docs, undo).catch(() =>
-        notify("Could not save library changes on this device."),
-      );
-  }, [docs, ready, persist, undo]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try {
@@ -114,45 +133,73 @@ function App() {
       localStorage.setItem("folio-sort", sort);
     } catch {}
   }, [sort]);
-  function applyBatch(entries) {
-    const changed = new Map(entries.map((e) => [e.id, e.name]));
-    setUndo({
-      previous: docs
-        .filter((d) => changed.has(d.id))
-        .map((d) => ({ id: d.id, name: d.name })),
-      changed,
-      sort,
-    });
-    setDocs((old) => applyPlan(old, entries));
-    order("custom");
+  async function applyBatch(entries) {
+    try {
+      await changeShelf(({ docs: latest }) => {
+        const changed = new Map(entries.map((e) => [e.id, e.name]));
+        const latestNames = new Map(latest.map((d) => [d.id, d.name]));
+        if (batch.some((d) => latestNames.get(d.id) !== d.name))
+          throw Error("Library changed. Reopen Organize to refresh.");
+        return {
+          docs: applyPlan(latest, entries),
+          undo: {
+            previous: latest
+              .filter((d) => changed.has(d.id))
+              .map(({ id, name }) => ({ id, name })),
+            changed,
+            sort,
+          },
+        };
+      });
+      order("custom");
+      notify("Batch applied.");
+    } catch (e) {
+      notify(e.message || "Batch could not be saved.");
+    }
     selectBatch(null);
-    notify("Batch applied.");
   }
-  function undoBatch() {
-    setDocs((old) => {
-      const current = new Map(old.map((d) => [d.id, d.name]));
-      return applyPlan(
-        old,
-        undo.previous.map((e) => ({
-          ...e,
-          name:
-            current.get(e.id) === undo.changed.get(e.id)
-              ? e.name
-              : current.get(e.id),
-        })),
-      );
-    });
-    order(undo.sort);
-    setUndo(null);
+  async function undoBatch() {
+    try {
+      const previousSort = await changeShelf(({ docs, undo }) => {
+        if (!undo) throw Error("No saved batch to undo.");
+        const names = new Map(docs.map((d) => [d.id, d.name]));
+        return {
+          docs: applyPlan(
+            docs,
+            undo.previous.map((e) => ({
+              ...e,
+              name:
+                names.get(e.id) === undo.changed.get(e.id)
+                  ? e.name
+                  : names.get(e.id),
+            })),
+          ),
+          undo: null,
+          result: undo.sort,
+        };
+      });
+      order(previousSort);
+      notify("Batch undone.");
+    } catch (e) {
+      notify(e.message || "Could not undo batch.");
+    }
     selectBatch(null);
-    notify("Batch undone.");
   }
   function patch(id, data) {
-    setDocs((old) => old.map((d) => (d.id === id ? { ...d, ...data } : d)));
+    return patchDocument(id, data)
+      .then(() => {
+        setSaveFailed(false);
+        return true;
+      })
+      .catch(() => {
+        setSaveFailed(true);
+        notify("Change not saved. Check device storage.");
+        return false;
+      });
   }
-  function open(d, page) {
+  async function open(d, page) {
+    await patch(d.id, { last: Date.now(), ...(page ? { page } : {}) });
     read(d.id);
-    patch(d.id, { last: Date.now(), ...(page ? { page } : {}) });
     action(null);
   }
   function navigate(name) {
@@ -176,15 +223,15 @@ function App() {
         }
         try {
           const id = crypto.randomUUID();
-          await saveFile(id, f);
-          added.push({
+          const doc = {
             id,
-            name: f.name.replace(/\.pdf$/i, ""),
+            name: f.name.replace(/\.pdf$/i, "") || f.name,
             added: Date.now(),
             size: f.size,
             page: 1,
             marks: [],
-          });
+          };
+          added.push({ doc, file: f });
         } catch {
           errors.push(
             `${f.name}: not enough device storage or storage is blocked`,
@@ -192,14 +239,16 @@ function App() {
         }
       }
       if (added.length) {
-        setDocs((prev) => [...added, ...prev]);
+        await importDocuments(added);
         navigate("All files");
         order("recent");
       }
       notify(errors.join(" · "));
+    } catch {
+      notify("Import not saved. Check available device storage.");
     } finally {
       working(false);
-      input.current.value = "";
+      if (input.current) input.current.value = "";
     }
   }
   const shown = docs
@@ -246,6 +295,7 @@ function App() {
         <Reader
           key={active.id}
           doc={active}
+          saveFailed={saveFailed}
           update={(v) => patch(active.id, v)}
           close={() => read(null)}
         />
@@ -479,10 +529,7 @@ function App() {
                               )
                             ) {
                               try {
-                                await eraseFile(d.id);
-                                setDocs((prev) =>
-                                  prev.filter((x) => x.id !== d.id),
-                                );
+                                await removeDocument(d.id);
                               } catch {
                                 notify(
                                   "Could not remove file. Please try again.",
@@ -536,9 +583,10 @@ function App() {
               ))}
           </section>
           <footer>
-            <span>
-              <HardDrive size={14} /> On this device
-            </span>
+            <LocalStoragePanel
+              available={ready && persist}
+              count={docs.length}
+            />
             <span>
               {docs.length} {docs.length === 1 ? "file" : "files"}
               <i /> {units(bytes)}

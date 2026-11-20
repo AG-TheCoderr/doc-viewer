@@ -31,13 +31,16 @@ try {
   const button = (name) => p.getByRole("button", { name, exact: true });
   await p.goto(`${base}/doc-viewer/`);
   await p.getByRole("heading", { name: "Drop PDFs here" }).waitFor();
-  await p.locator("input[type=file]").setInputFiles(
-    ["Scan 10", "Scan 2", "Scan 1"].map((name) => ({
-      name: name + ".pdf",
-      mimeType: "application/pdf",
-      buffer: fixture,
-    })),
-  );
+  await p
+    .locator("input[type=file]")
+    .first()
+    .setInputFiles(
+      ["Scan 10", "Scan 2", "Scan 1"].map((name) => ({
+        name: name + ".pdf",
+        mimeType: "application/pdf",
+        buffer: fixture,
+      })),
+    );
   await button("Organize").click();
   await p.getByLabel("Batch order").selectOption("name");
   assert.deepEqual(await p.locator(".org-file b").allTextContents(), [
@@ -84,6 +87,7 @@ try {
   }
   await button("Back").click();
   await button("Apply to library").click();
+  await p.getByLabel("Read Week 008 - Scan 2", { exact: true }).waitFor();
   assert.deepEqual(await p.locator(".docname").allTextContents(), [
     "Week 008 - Scan 2",
     "Scan 1",
@@ -92,6 +96,7 @@ try {
   await p.reload();
   await button("Organize").click();
   await button("Undo last batch").click();
+  await p.getByLabel("Read Scan 2", { exact: true }).waitFor();
   assert.equal(
     await p.locator(".docname").filter({ hasText: "Week" }).count(),
     0,

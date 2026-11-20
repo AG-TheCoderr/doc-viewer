@@ -14,7 +14,8 @@
     "prestart": "npm run build",
     "predev": "npm run build",
     "test:smoke": "node scripts/smoke.mjs",
-    "test:organizer": "node scripts/organizer-smoke.mjs"
+    "test:organizer": "node scripts/organizer-smoke.mjs",
+    "test:storage": "node scripts/storage-smoke.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

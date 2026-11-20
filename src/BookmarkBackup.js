@@ -40,10 +40,16 @@ export default function BookmarkBackup({ doc, update }) {
         )
       )
         throw Error();
-      const merged = new Map(doc.marks.map((m) => [m.page, m]));
-      for (const { page, note } of data.bookmarks)
-        merged.set(page, { page, note });
-      update({ marks: [...merged.values()].sort((a, b) => a.page - b.page) });
+      const ok = await update((current) => {
+        const merged = new Map(current.marks.map((m) => [m.page, m]));
+        for (const { page, note } of data.bookmarks)
+          merged.set(page, { page, note });
+        return { marks: [...merged.values()].sort((a, b) => a.page - b.page) };
+      });
+      if (ok === false) {
+        tell("Notes not saved. Check device storage.");
+        return;
+      }
       tell("Bookmarks imported.");
     } catch {
       tell(
