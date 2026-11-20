@@ -506,3 +506,27 @@ footer i {
   background: var(--panel);
   border-radius: 4px;
 }
+
+.reader-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.control-switch {
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+.control-switch[aria-expanded="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.control-switch kbd {
+  padding: 1px 4px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
