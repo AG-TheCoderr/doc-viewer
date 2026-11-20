@@ -1,6 +1,6 @@
 # Folio — a local PDF workspace
 
-[Open the library](https://ag-thecoderr.github.io/doc-viewer/). Import a PDF or explore one of three original sample field guides. The static app does not upload your documents or require a login.
+[Open the library](https://ag-thecoderr.github.io/doc-viewer/). Start with an empty library and import your own PDFs. The static app does not upload your documents or require a login.
 
 - Read using a locally bundled PDF.js worker: real page counts, page jump, left/right arrow keys, zoom, rotation, selectable text and full-document text search.
 - Keep your files, favorites, recent reading position, page bookmarks and notes in this browser's IndexedDB. Clearing site data removes the library. Download originals and export notes for backup.

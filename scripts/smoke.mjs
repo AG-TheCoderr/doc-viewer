@@ -22,7 +22,11 @@ try {
     if (m.type() === "error") console.log("console", m.text());
   });
   await p.goto(`http://127.0.0.1:${server.address().port}/doc-viewer/`);
-  await p.getByText("Open document", { exact: true }).click();
+  await p.getByRole("heading", { name: "Drop PDFs here" }).waitFor();
+  assert.equal(await p.locator(".card").count(), 0);
+  const fixture = resolve("tests/fixtures/navigation.pdf");
+  await p.locator("input[type=file]").first().setInputFiles(fixture);
+  await p.getByLabel("Read navigation", { exact: true }).click();
   await p.locator(".react-pdf__Page__canvas").waitFor();
   await p.getByLabel("Next page").click();
   await p.getByLabel("Page bookmarks", { exact: true }).click();
@@ -35,21 +39,12 @@ try {
   if ((await p.getByLabel("Page number").inputValue()) !== "3")
     throw Error("wrong search page");
   await p.reload();
-  await p.getByText("Resume reading").click();
+  await p.getByLabel("Read navigation", { exact: true }).click();
   await p.locator(".react-pdf__Page__canvas").waitFor();
   if ((await p.getByLabel("Page number").inputValue()) !== "3")
     throw Error("lost reading position");
   await p.getByText("Back to library").click();
-  await p
-    .locator("input[type=file]")
-    .first()
-    .setInputFiles(resolve("public/samples/form.pdf"));
-  await p.getByText("1 PDF added to your library.").waitFor();
-  await p.getByLabel("Read form", { exact: true }).click();
-  await p.locator(".react-pdf__Page__canvas").waitFor();
-  await p.getByText("Back to library").click();
   await p.setViewportSize({ width: 375, height: 740 });
-  await p.getByLabel("Open navigation").click();
   await p.getByRole("button", { name: /Bookmarks 1/ }).click();
   await p.getByText("Page 2 · test note").waitFor();
   if (await p.evaluate(() => document.documentElement.scrollWidth > innerWidth))
@@ -57,8 +52,8 @@ try {
   await p.getByLabel("Switch to dark mode").click();
   await p.reload();
   assert.equal(await p.locator("html").getAttribute("data-theme"), "dark");
-  await p.getByLabel("Search documents", { exact: true }).fill("form");
-  await p.getByLabel("Read form", { exact: true }).click();
+  await p.getByLabel("Search documents", { exact: true }).fill("navigation");
+  await p.getByLabel("Read navigation", { exact: true }).click();
   await p.locator(".react-pdf__Page__canvas").waitFor();
   assert.deepEqual(errors, []);
   console.log(

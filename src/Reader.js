@@ -44,8 +44,7 @@ export default function Reader({ doc, update, close }) {
       object;
     (async () => {
       try {
-        if (doc.sample) urlSet(`${base}/samples/${doc.id}.pdf`);
-        else {
+        {
           const f = await readFile(doc.id);
           if (!active) return;
           if (!f) throw Error();
@@ -64,7 +63,7 @@ export default function Reader({ doc, update, close }) {
       job.current++;
       if (object) URL.revokeObjectURL(object);
     };
-  }, [doc.id, doc.sample]);
+  }, [doc.id]);
   useEffect(() => {
     const el = viewport.current;
     const observer = new ResizeObserver(() =>
