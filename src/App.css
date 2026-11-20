@@ -534,12 +534,23 @@ footer i {
 
 /* Only soften rendered ink; leave selection, links and reader controls alone. */
 @media screen {
-  .reader[data-soft="true"] .react-pdf__Page__canvas {
-    filter: blur(0.4px);
+  .reader .react-pdf__Page__canvas {
+    filter: var(--page-filter, none);
   }
 }
-.toolbar button[aria-pressed="true"] {
-  background: var(--active);
-  color: var(--accent);
-  border-color: var(--accent);
+.soft-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+}
+.toolbar .soft-control input {
+  width: 90px;
+  height: 30px;
+  padding: 0;
+  accent-color: var(--accent);
+}
+.soft-control span {
+  min-width: 4ch;
+  font-variant-numeric: tabular-nums;
 }
