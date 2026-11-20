@@ -554,3 +554,59 @@ footer i {
   min-width: 4ch;
   font-variant-numeric: tabular-nums;
 }
+.storage-link {
+  padding: 0;
+  color: inherit;
+  font: inherit;
+}
+.device-dialog {
+  width: min(380px, calc(100% - 32px));
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px;
+  font-size: 13px;
+}
+.device-dialog::backdrop {
+  background: #12182166;
+}
+.device-dialog > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.device-dialog h2 {
+  font-size: 19px;
+}
+.device-dialog p {
+  line-height: 1.5;
+  margin: 12px 0;
+}
+.device-dialog p:empty {
+  display: none;
+}
+.device-dialog small {
+  color: var(--muted);
+}
+.device-dialog .device-actions {
+  justify-content: start;
+  margin: 12px 0 8px;
+}
+.device-dialog .device-actions button,
+.device-dialog > button {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 7px;
+}
+
+.reader-save-error {
+  position: fixed;
+  bottom: 8px;
+  left: 8px;
+  z-index: 6;
+  background: var(--panel);
+  padding: 8px;
+  font-size: 13px;
+}

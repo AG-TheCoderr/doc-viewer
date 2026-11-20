@@ -10,6 +10,12 @@
 
 [Reader research, tradeoffs and acceptance checks](docs/reader-research.md)
 
+## Device storage
+
+The library lives in IndexedDB in the current browser profile, not on a server. PDF bytes and their library entries are imported or removed in one transaction. Other Folio tabs refresh after a commit. Small preferences such as theme and blur intensity use `localStorage`; large files do not.
+
+In the library footer, open **On this device** to request protection against automatic eviction (where supported), back up the library, or restore it. A `.folio` backup contains original PDF bytes, library order, names, favorites, reading positions, bookmarks, and notes. Restore adds missing document IDs in backup order without replacing existing records. Browser preferences and the last batch undo journal are not transferred. Backups are local files, not encrypted archives; keep them somewhere private. Clearing site data or ending a private browsing session can still remove your library, even if storage protection is enabled.
+
 ## Bulk organizer
 
 Import PDFs, optionally filter the library, then choose **Organize**. Arrange the visible files by natural filename or date, use the arrows, or move a checked group to a position. **Sequence rename** previews new names for the checked files using a prefix, starting number, padding, and optional original title. **Apply to library** saves the displayed order and checked renames without rewriting any PDF. The last batch can be undone, even after reload.
@@ -24,4 +30,4 @@ Use Node.js 22.13+ and `npm ci`. `npm run client` starts the React development s
 
 ## Browser smoke test
 
-Build for `/doc-viewer` (`PUBLIC_URL=/doc-viewer npm run build`), install a test browser with `npx playwright-core install chromium`, then run `npm run test:smoke` and `npm run test:organizer`. Alternatively set `CHROME_PATH` to an installed Chromium executable. The test serves the production build locally and exercises reading, search, notes, persistence, imports, and narrow-screen navigation.
+Build for `/doc-viewer` (`PUBLIC_URL=/doc-viewer npm run build`), install a test browser with `npx playwright-core install chromium`, then run `npm run test:smoke` and `npm run test:organizer`. Run `npm run test:storage` to check cross-tab imports, rollback, and backup/restore. Alternatively set `CHROME_PATH` to an installed Chromium executable. The test serves the production build locally and exercises reading, search, notes, persistence, imports, and narrow-screen navigation.

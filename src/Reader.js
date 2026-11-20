@@ -25,7 +25,7 @@ const options = {
   iccUrl: `${base}/pdfjs/iccs/`,
   isEvalSupported: false,
 };
-export default function Reader({ doc, update, close }) {
+export default function Reader({ doc, update, close, saveFailed }) {
   const [url, urlSet] = useState(""),
     [error, fail] = useState(""),
     [pdf, loaded] = useState(null),
@@ -200,6 +200,11 @@ export default function Reader({ doc, update, close }) {
       style={{ "--page-filter": blur ? `blur(${blur}px)` : "none" }}
       aria-label={doc.name}
     >
+      {saveFailed && (
+        <p className="reader-save-error" role="alert">
+          Change not saved. Check device storage.
+        </p>
+      )}
       <div id="reader-controls" hidden={!controlsOpen}>
         <div className="reader-nav">
           <button ref={backRef} className="back" onClick={close}>
@@ -343,11 +348,14 @@ export default function Reader({ doc, update, close }) {
             <button
               disabled={!pdf}
               onClick={() =>
-                update({
+                update((current) => ({
                   marks: saved
-                    ? doc.marks.filter((m) => m !== saved)
-                    : [...doc.marks, { page: doc.page, note: "" }],
-                })
+                    ? current.marks.filter((m) => m.page !== doc.page)
+                    : [
+                        ...current.marks.filter((m) => m.page !== doc.page),
+                        { page: doc.page, note: "" },
+                      ],
+                }))
               }
             >
               {saved ? "Remove bookmark" : "Bookmark this page"}
@@ -356,14 +364,16 @@ export default function Reader({ doc, update, close }) {
               <input
                 aria-label="Bookmark note"
                 placeholder="Add a note…"
-                value={saved.note}
-                onChange={(e) =>
-                  update({
-                    marks: doc.marks.map((m) =>
-                      m === saved ? { ...m, note: e.target.value } : m,
+                key={doc.page}
+                defaultValue={saved.note}
+                onChange={(e) => {
+                  const note = e.target.value;
+                  update((current) => ({
+                    marks: current.marks.map((m) =>
+                      m.page === doc.page ? { ...m, note } : m,
                     ),
-                  })
-                }
+                  }));
+                }}
               />
             )}{" "}
             {doc.marks.map((m) => (
