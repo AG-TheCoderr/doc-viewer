@@ -4,9 +4,9 @@ Qualitative desk research, November 2026. Community posts reveal specific frustr
 
 | Signal | Decision for Folio | Acceptance check |
 | --- | --- | --- |
-| A reader explicitly asks to remember the last PDF page. [1](https://www.reddit.com/r/firefox/comments/pfawa8/remember_pdf_last_page_read/) | Keep the document and page on the device, not just in React state. Distinguish a first-run featured read from actual history. | Open page 3, refresh, resume: the same PDF opens on page 3. |
+| A reader explicitly asks to remember the last PDF page. [1](https://www.reddit.com/r/firefox/comments/pfawa8/remember_pdf_last_page_read/) | Keep the document and page on the device, not just in React state. Start with an empty library; history reflects only opened files. | Open page 3, refresh, resume: the same PDF opens on page 3. |
 | PDF.js users request dark mode and report that naive inversion distorts illustrations. [2](https://github.com/mozilla/pdf.js/issues/19491) | Persist a dark **workspace** setting. Do not invert photographs or diagrams. This is not a PDF recoloring engine. | Toggle theme, reload, and compare the same sample page: the surrounding controls change, not the artwork. |
-| Image-only scans have no text for selection or search without OCR. [1](https://helpx.adobe.com/acrobat/desktop/create-documents/scan-documents-to-pdfs/recognize-text.html) | Search the actual text layer and list matching pages. Explain that no-match results may reflect a scan. Don't silently send documents to a recognition service. | Search “watershed” in The Quiet Atlas: jump to page 3. Image-only PDFs still render. |
+| Image-only scans have no text for selection or search without OCR. [1](https://helpx.adobe.com/acrobat/desktop/create-documents/scan-documents-to-pdfs/recognize-text.html) | Search the actual text layer and list matching pages. Explain that no-match results may reflect a scan. Don't silently send documents to a recognition service. | Import the navigation test fixture and search “watershed”: jump to page 3. Image-only PDFs still render. |
 
 ### What the original app got wrong
 

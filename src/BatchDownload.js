@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base, readFile } from "./library";
+import { readFile } from "./library";
 // Download original files, not rendered canvases. Some browsers ask permission for multiple downloads.
 export default function BatchDownload({ docs, close }) {
   const [ids, select] = useState([]),
@@ -8,8 +8,7 @@ export default function BatchDownload({ docs, close }) {
     try {
       for (const d of docs.filter((x) => ids.includes(x.id))) {
         let url;
-        if (d.sample) url = `${base}/samples/${d.id}.pdf`;
-        else {
+        {
           const file = await readFile(d.id);
           if (!file) throw Error();
           url = URL.createObjectURL(file);
@@ -18,7 +17,7 @@ export default function BatchDownload({ docs, close }) {
         a.href = url;
         a.download = d.name + ".pdf";
         a.click();
-        if (!d.sample) setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
       close();
     } catch {
