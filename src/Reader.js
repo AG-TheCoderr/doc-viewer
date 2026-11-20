@@ -35,6 +35,13 @@ export default function Reader({ doc, update, close }) {
     [query, search] = useState(""),
     [hits, result] = useState(null),
     [finding, find] = useState(false),
+    [soft, setSoft] = useState(() => {
+      try {
+        return localStorage.getItem("folio-soft-rendering") !== "off";
+      } catch {
+        return true;
+      }
+    }),
     [controlsOpen, setControlsOpen] = useState(false),
     [panel, show] = useState(""),
     [number, type] = useState(String(doc.page));
@@ -180,7 +187,7 @@ export default function Reader({ doc, update, close }) {
     </button>
   );
   return (
-    <section className="reader" aria-label={doc.name}>
+    <section className="reader" data-soft={soft} aria-label={doc.name}>
       <div id="reader-controls" hidden={!controlsOpen}>
         <div className="reader-nav">
           <button ref={backRef} className="back" onClick={close}>
@@ -242,6 +249,23 @@ export default function Reader({ doc, update, close }) {
             () => scale(Math.min(3, zoom + 0.25)),
             zoom >= 3,
           )}
+          <button
+            aria-pressed={soft}
+            title="Soften page edges"
+            onClick={() => {
+              setSoft(!soft);
+              try {
+                localStorage.setItem(
+                  "folio-soft-rendering",
+                  soft ? "off" : "on",
+                );
+              } catch {
+                /* Still works for the current document. */
+              }
+            }}
+          >
+            Soft view
+          </button>
           {nav(RotateCw, "Rotate page", () => turn((rotate + 90) % 360))}
           <i />
           {nav(Search, "Find text", () =>
