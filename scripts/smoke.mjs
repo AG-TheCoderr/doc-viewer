@@ -28,12 +28,29 @@ try {
   await p.locator("input[type=file]").first().setInputFiles(fixture);
   await p.getByLabel("Read navigation", { exact: true }).click();
   await p.locator(".react-pdf__Page__canvas").waitFor();
-  await p.getByLabel("Next page").click();
+  const controls = p.getByRole("button", { name: "Controls", exact: true });
+  const nextPage = p.getByLabel("Next page");
+  assert.equal(await nextPage.isVisible(), false);
+  await p.keyboard.press("h");
+  await nextPage.waitFor();
+  await p.keyboard.press("h");
+  await nextPage.waitFor({ state: "hidden" });
+  await controls.click();
+  await nextPage.click();
   await p.getByLabel("Page bookmarks", { exact: true }).click();
   await p.getByText("Bookmark this page", { exact: true }).click();
   await p.getByPlaceholder("Add a note…").fill("test note");
   await p.getByLabel("Find text", { exact: true }).click();
-  await p.getByLabel("Find text in PDF").fill("watershed");
+  const query = p.getByLabel("Find text in PDF");
+  await query.pressSequentially("watershed");
+  assert.equal(await query.inputValue(), "watershed");
+  await query.press("Escape");
+  await query.waitFor({ state: "hidden" });
+  assert.equal(
+    await controls.evaluate((el) => el === document.activeElement),
+    true,
+  );
+  await controls.click();
   await p.getByText("Find pages", { exact: true }).click();
   await p.getByText("1 matching page").waitFor();
   if ((await p.getByLabel("Page number").inputValue()) !== "3")
