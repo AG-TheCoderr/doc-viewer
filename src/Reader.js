@@ -35,11 +35,19 @@ export default function Reader({ doc, update, close }) {
     [query, search] = useState(""),
     [hits, result] = useState(null),
     [finding, find] = useState(false),
-    [soft, setSoft] = useState(() => {
+    [blur, setBlur] = useState(() => {
       try {
-        return localStorage.getItem("folio-soft-rendering") !== "off";
+        const saved = localStorage.getItem("folio-soft-rendering");
+        if (saved === "off") return 0;
+        const value = Number(saved);
+        return saved?.trim() &&
+          Number.isFinite(value) &&
+          value >= 0 &&
+          value <= 2
+          ? value
+          : 0.4;
       } catch {
-        return true;
+        return 0.4;
       }
     }),
     [controlsOpen, setControlsOpen] = useState(false),
@@ -187,7 +195,11 @@ export default function Reader({ doc, update, close }) {
     </button>
   );
   return (
-    <section className="reader" data-soft={soft} aria-label={doc.name}>
+    <section
+      className="reader"
+      style={{ "--page-filter": blur ? `blur(${blur}px)` : "none" }}
+      aria-label={doc.name}
+    >
       <div id="reader-controls" hidden={!controlsOpen}>
         <div className="reader-nav">
           <button ref={backRef} className="back" onClick={close}>
@@ -249,23 +261,30 @@ export default function Reader({ doc, update, close }) {
             () => scale(Math.min(3, zoom + 0.25)),
             zoom >= 3,
           )}
-          <button
-            aria-pressed={soft}
-            title="Soften page edges"
-            onClick={() => {
-              setSoft(!soft);
-              try {
-                localStorage.setItem(
-                  "folio-soft-rendering",
-                  soft ? "off" : "on",
-                );
-              } catch {
-                /* Still works for the current document. */
-              }
-            }}
-          >
+          <label className="soft-control">
             Soft view
-          </button>
+            <input
+              type="range"
+              aria-label="Soft view intensity"
+              min="0"
+              max="2"
+              step="0.1"
+              value={blur}
+              aria-valuetext={blur ? `${blur} pixels` : "Off"}
+              onChange={(e) => {
+                const value = e.currentTarget.valueAsNumber;
+                setBlur(value);
+                try {
+                  localStorage.setItem("folio-soft-rendering", String(value));
+                } catch {
+                  /* Session-only if storage is unavailable. */
+                }
+              }}
+            />
+            <span aria-hidden="true">
+              {blur ? `${blur.toFixed(1)}px` : "Off"}
+            </span>
+          </label>
           {nav(RotateCw, "Rotate page", () => turn((rotate + 90) % 360))}
           <i />
           {nav(Search, "Find text", () =>
