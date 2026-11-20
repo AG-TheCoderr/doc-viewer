@@ -13,12 +13,15 @@
     "preclient": "node scripts/pdf-assets.cjs",
     "prestart": "npm run build",
     "predev": "npm run build",
-    "test:smoke": "node scripts/smoke.mjs"
+    "test:smoke": "node scripts/smoke.mjs",
+    "test:organizer": "node scripts/organizer-smoke.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
+    "@neslinesli93/qpdf-wasm": "0.3.1",
     "adm-zip": "^0.5.12",
     "express": "^4.19.2",
+    "fflate": "0.8.2",
     "gsap": "^3.13.0",
     "idb-keyval": "^6.3.0",
     "lucide-react": "^1.77.0",

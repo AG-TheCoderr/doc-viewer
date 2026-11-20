@@ -21,7 +21,8 @@ import {
 } from "lucide-react";
 import { readShelf, writeShelf, saveFile, eraseFile, base } from "./library";
 import "./App.css";
-import BatchDownload from "./BatchDownload";
+import { applyPlan } from "./bulkPlan";
+const Organizer = lazy(() => import("./Organizer"));
 const Reader = lazy(() => import("./Reader"));
 const navs = [
   ["All files", Layers],
@@ -43,7 +44,13 @@ function App() {
     [view, switchView] = useState("All files"),
     [reader, read] = useState(null),
     [search, filter] = useState(""),
-    [sort, order] = useState("recent"),
+    [sort, order] = useState(() => {
+      try {
+        return localStorage.getItem("folio-sort") || "recent";
+      } catch {
+        return "recent";
+      }
+    }),
     [layout, setLayout] = useState("list"),
     [theme, setTheme] = useState(() => {
       try {
@@ -54,7 +61,8 @@ function App() {
     }),
     [message, notify] = useState(""),
     [actions, action] = useState(null),
-    [batch, selectBatch] = useState(false),
+    [batch, selectBatch] = useState(null),
+    [undo, setUndo] = useState(null),
     [busy, working] = useState(false),
     [drag, dragging] = useState(false);
   const input = useRef(null),
@@ -62,7 +70,8 @@ function App() {
     active = docs.find((d) => d.id === reader);
   useEffect(() => {
     readShelf()
-      .then((value) => {
+      .then(([value, journal]) => {
+        if (journal) setUndo(journal);
         if (Array.isArray(value)) setDocs(value.filter((d) => !d.sample));
       })
       .catch(() => {
@@ -75,10 +84,10 @@ function App() {
   }, []);
   useEffect(() => {
     if (ready && persist)
-      writeShelf(docs).catch(() =>
+      writeShelf(docs, undo).catch(() =>
         notify("Could not save library changes on this device."),
       );
-  }, [docs, ready, persist]);
+  }, [docs, ready, persist, undo]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try {
@@ -87,6 +96,7 @@ function App() {
   }, [theme]);
   useEffect(() => {
     function keys(e) {
+      if (document.querySelector("dialog[open]")) return;
       if (e.key === "Escape") {
         action(null);
       }
@@ -99,6 +109,44 @@ function App() {
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
   }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem("folio-sort", sort);
+    } catch {}
+  }, [sort]);
+  function applyBatch(entries) {
+    const changed = new Map(entries.map((e) => [e.id, e.name]));
+    setUndo({
+      previous: docs
+        .filter((d) => changed.has(d.id))
+        .map((d) => ({ id: d.id, name: d.name })),
+      changed,
+      sort,
+    });
+    setDocs((old) => applyPlan(old, entries));
+    order("custom");
+    selectBatch(null);
+    notify("Batch applied.");
+  }
+  function undoBatch() {
+    setDocs((old) => {
+      const current = new Map(old.map((d) => [d.id, d.name]));
+      return applyPlan(
+        old,
+        undo.previous.map((e) => ({
+          ...e,
+          name:
+            current.get(e.id) === undo.changed.get(e.id)
+              ? e.name
+              : current.get(e.id),
+        })),
+      );
+    });
+    order(undo.sort);
+    setUndo(null);
+    selectBatch(null);
+    notify("Batch undone.");
+  }
   function patch(id, data) {
     setDocs((old) => old.map((d) => (d.id === id ? { ...d, ...data } : d)));
   }
@@ -108,7 +156,7 @@ function App() {
     action(null);
   }
   function navigate(name) {
-    selectBatch(false);
+    selectBatch(null);
     switchView(name);
     read(null);
     filter("");
@@ -168,11 +216,13 @@ function App() {
             ))),
     )
     .sort((a, b) =>
-      sort === "az"
-        ? a.name.localeCompare(b.name)
-        : view === "Recent"
-          ? b.last - a.last
-          : b.added - a.added,
+      sort === "custom"
+        ? 0
+        : sort === "az"
+          ? a.name.localeCompare(b.name, undefined, { numeric: true })
+          : view === "Recent"
+            ? b.last - a.last
+            : b.added - a.added,
     );
   const counts = [
     docs.length,
@@ -205,7 +255,7 @@ function App() {
     <div
       className="shell"
       onDragOver={(e) => {
-        if (e.dataTransfer.types.includes("Files")) {
+        if (!batch && e.dataTransfer.types.includes("Files")) {
           e.preventDefault();
           dragging(true);
         }
@@ -213,7 +263,7 @@ function App() {
       onDrop={(e) => {
         e.preventDefault();
         dragging(false);
-        add(Array.from(e.dataTransfer.files));
+        if (!batch) add(Array.from(e.dataTransfer.files));
       }}
     >
       <input
@@ -278,6 +328,7 @@ function App() {
           {message && (
             <div className="notice" role="status">
               {message}
+              {undo && <button onClick={undoBatch}>Undo batch</button>}
               <IconButton label="Dismiss message" onClick={() => notify("")}>
                 <X size={16} />
               </IconButton>
@@ -312,12 +363,20 @@ function App() {
               ))}
             </nav>
             {batch && (
-              <BatchDownload docs={shown} close={() => selectBatch(false)} />
+              <Suspense fallback={null}>
+                <Organizer
+                  scope={batch}
+                  library={docs}
+                  undo={undo ? undoBatch : null}
+                  apply={applyBatch}
+                  close={() => selectBatch(null)}
+                />
+              </Suspense>
             )}
             {shown.length > 0 && (
               <div className="filters">
-                <button onClick={() => selectBatch(!batch)}>
-                  {batch ? "Done" : "Select"}
+                <button onClick={() => selectBatch(shown)}>
+                  <Layers size={15} /> Organize
                 </button>
                 <div className="sort">
                   <select
@@ -329,6 +388,7 @@ function App() {
                       {view === "Recent" ? "Last opened" : "Date added"}
                     </option>
                     <option value="az">Title A–Z</option>
+                    <option value="custom">Custom order</option>
                   </select>
                   <ChevronDown size={13} />
                 </div>
