@@ -468,18 +468,36 @@ footer i {
   display: flex;
   gap: 5px;
 }
-.paperwell {
-  overflow: auto;
-  height: 70dvh;
+.reader {
+  position: fixed;
+  inset: 0;
+  color: var(--ink);
   background: var(--rail);
-  padding: 18px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
 }
-.react-pdf__Page {
-  margin: auto;
-  width: fit-content;
-  box-shadow: 0 2px 9px #0002;
+.paperwell {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  outline: 0;
+}
+.page-slot {
+  margin-inline: auto;
+  background: white;
+}
+.reader #reader-controls {
+  position: absolute;
+  z-index: 5;
+  inset: 0 0 auto;
+  background: var(--panel);
+  padding: 8px 12px;
+  max-height: 75dvh;
+  overflow: auto;
+  box-shadow: 0 2px 8px #0002;
+}
+.reader .toolbar {
+  margin: 4px 0 0;
+  border-bottom: 0;
 }
 .toolsPanel button,
 .marklink {
@@ -512,21 +530,4 @@ footer i {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-}
-.control-switch {
-  color: var(--muted);
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 7px 10px;
-  font-size: 12px;
-}
-.control-switch[aria-expanded="true"] {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-.control-switch kbd {
-  padding: 1px 4px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
 }

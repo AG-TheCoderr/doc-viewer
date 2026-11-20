@@ -27,16 +27,30 @@ try {
   const fixture = resolve("tests/fixtures/navigation.pdf");
   await p.locator("input[type=file]").first().setInputFiles(fixture);
   await p.getByLabel("Read navigation", { exact: true }).click();
-  await p.locator(".react-pdf__Page__canvas").waitFor();
-  const controls = p.getByRole("button", { name: "Controls", exact: true });
+  await p.locator(".react-pdf__Page__canvas").first().waitFor();
+  const paper = p.locator(".paperwell");
+  assert.deepEqual(await paper.boundingBox(), {
+    x: 0,
+    y: 0,
+    width: 1280,
+    height: 850,
+  });
+  assert.equal(await p.locator(".mast").count(), 0);
+  const tapPage = () => paper.click({ position: { x: 30, y: 350 } });
   const nextPage = p.getByLabel("Next page");
   assert.equal(await nextPage.isVisible(), false);
   await p.keyboard.press("h");
   await nextPage.waitFor();
   await p.keyboard.press("h");
   await nextPage.waitFor({ state: "hidden" });
-  await controls.click();
-  await nextPage.click();
+  await tapPage();
+  await paper.evaluate(
+    (el) =>
+      (el.scrollTop = el.querySelector('[data-sheet="2"]').offsetTop + 10),
+  );
+  await p.waitForFunction(
+    () => document.querySelector('[aria-label="Page number"]').value === "2",
+  );
   await p.getByLabel("Page bookmarks", { exact: true }).click();
   await p.getByText("Bookmark this page", { exact: true }).click();
   await p.getByPlaceholder("Add a note…").fill("test note");
@@ -47,20 +61,20 @@ try {
   await query.press("Escape");
   await query.waitFor({ state: "hidden" });
   assert.equal(
-    await controls.evaluate((el) => el === document.activeElement),
+    await paper.evaluate((el) => el === document.activeElement),
     true,
   );
-  await controls.click();
+  await tapPage();
   await p.getByText("Find pages", { exact: true }).click();
   await p.getByText("1 matching page").waitFor();
   if ((await p.getByLabel("Page number").inputValue()) !== "3")
     throw Error("wrong search page");
   await p.reload();
   await p.getByLabel("Read navigation", { exact: true }).click();
-  await p.locator(".react-pdf__Page__canvas").waitFor();
+  await p.locator(".react-pdf__Page__canvas").first().waitFor();
   if ((await p.getByLabel("Page number").inputValue()) !== "3")
     throw Error("lost reading position");
-  await p.getByText("Back to library").click();
+  await p.keyboard.press("Escape");
   await p.setViewportSize({ width: 375, height: 740 });
   await p.getByRole("button", { name: /Bookmarks 1/ }).click();
   await p.getByText("Page 2 · test note").waitFor();
@@ -71,7 +85,16 @@ try {
   assert.equal(await p.locator("html").getAttribute("data-theme"), "dark");
   await p.getByLabel("Search documents", { exact: true }).fill("navigation");
   await p.getByLabel("Read navigation", { exact: true }).click();
-  await p.locator(".react-pdf__Page__canvas").waitFor();
+  await p.locator(".react-pdf__Page__canvas").first().waitFor();
+  assert.deepEqual(await paper.boundingBox(), {
+    x: 0,
+    y: 0,
+    width: 375,
+    height: 740,
+  });
+  await tapPage();
+  await p.getByText("Back to library").click();
+  await p.getByRole("heading", { name: "Library" }).waitFor();
   assert.deepEqual(errors, []);
   console.log(
     "PASS: rendering, navigation, bookmark note, full-document search, resume, file import, mobile navigation",
